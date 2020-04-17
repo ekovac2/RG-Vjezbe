@@ -15,11 +15,6 @@
 
 using namespace easy3d;
 
-// This example shows how to
-//		- estimation normal information of a point cloud.
-//      - re-orientation the normals.
-
-
 int main(int argc, char** argv) {
     // Initialize logging.
     logging::initialize(argv[0]);
@@ -30,12 +25,10 @@ int main(int argc, char** argv) {
         // Pokretanje viewera
         viewer.run();
         return EXIT_SUCCESS;
-
     } catch (const std::runtime_error &e) {
         LOG(ERROR) << "Caught a fatal error: " + std::string(e.what());
         return EXIT_FAILURE;
     }
-
     return EXIT_SUCCESS;
 
 }

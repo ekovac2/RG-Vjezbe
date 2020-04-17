@@ -31,6 +31,16 @@ using namespace easy3d;
 class ImprovedViewer : public easy3d::Viewer
 {
 public:
+    struct Rectangle{
+        double x1, x2, y1, y2;
+        Rectangle(){}
+        Rectangle(double x1, double x2, double y1, double y2){
+            this->x1 = x1;
+            this->x2 = x2;
+            this->y1 = y1;
+            this->y2 = y2;
+        }
+    };
     ImprovedViewer(const std::string& title = "s");
     void readFilePoints(const std::string &ime);
     void readFileLines(const std::string &ime, const std::string &imeIndices);
@@ -39,6 +49,13 @@ public:
     void readPolygonPoints(const std::string &ime);
     double AreaOfTriangle_Aux(vec3 P1, vec3 P2, vec3 P3);
     bool IsPointInsidePolygon(vec3 P, std::vector<vec3> PI);
+    bool ConvexHull_BruteForce_Classic(std::vector<vec3> P);
+    bool ConvexHull_BruteForce_VeryBad(std::vector<vec3> P);
+    bool IsPointInsideTriangle(vec3 P, std::vector<vec3> T);
+    bool ArePointsOnSameSideOfLine(std::vector<vec3> P, vec3 l);
+    vec3 LineThroughTwoPoints(vec3 P1, vec3 P2);
+    void generatePointsRect();
+    std::vector<vec3> RectangularSearch_Naive(std::vector<vec3> P, Rectangle R);
 
 
 protected:
