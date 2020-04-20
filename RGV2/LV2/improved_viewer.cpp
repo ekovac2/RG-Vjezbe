@@ -444,6 +444,128 @@ bool ImprovedViewer::ConvexHull_BruteForce_VeryBad(std::vector<vec3> P){
     return Polygon(V);
 }
 
+std::vector<double> interval_search(const std::multiset<double> &X, double x1, double x2) {
+    std::vector<double> V = {};
+    auto l = std::lower_bound(X.begin(), X.end(), x1);
+    auto r = std::upper_bound(X.begin(), X.end(), x2);
+    for(auto i = l; i != r; i++) V.push_back(*i);
+    return V;
+}
+
+std::vector<vec3> ImprovedViewer::HVLineSegmentsIntersections(std::vector<LineSegment> s) {
+    std::vector<Event> E = {};
+    for (int i = 0; i < s.size(); i++) {
+        if (s[i].Q.y == s[i].R.y) {
+            E.push_back(Event(HLineStart, std::min(s[i].Q.x, s[i].R.x), i));
+            E.push_back(Event(HLineEnd, std::max(s[i].Q.x, s[i].R.x), i));
+        }
+        else {
+            E.push_back(Event(VLine, std::max(s[i].Q.x, s[i].R.x), i));
+        }
+    }
+    auto Cmp = [](Event e1, Event e2) {
+        return (e1.x < e2.x) || ((e1.x == e2.x) && (e1.t == HLineStart || e2.t == HLineEnd));
+    };
+    std::sort(E.begin(), E.end(), Cmp);
+    std::vector<vec3> P = {};
+    std::multiset<double> T;
+    for (Event e: E) {
+        int i = e.i;
+        if (e.t == HLineStart) {
+            T.insert(s[i].Q.y);
+        }
+        else if (e.t == HLineEnd) {
+            T.erase(s[i].Q.y);
+        }
+        else {
+            std::vector<double> Y = interval_search(T, std::min(s[i].Q.y, s[i].R.y), std::max(s[i].Q.y, s[i].R.y));
+            for(int j = 0; j < Y.size(); j++) {
+                P.push_back(vec3(e.x, Y[j], 0));
+            }
+        }
+    }
+    return P;
+}
+
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
+int ImprovedViewer::GeneralizedOrientationOfThreePoints(vec3 P1, vec3 P2, vec3 P3) {
+    double a = P2.x - P1.x;
+    double b = P2.y - P1.y;
+    double c = P3.x - P1.x;
+    double d = P3.y - P1.y;
+    double e = a * d - b * c;
+    if (e != 0) {
+        return sgn(e);
+    }
+    if (a * c < 0 || b * d < 0) {
+        return -1;
+    }
+    if (a * a + b * b < c * c + d * d) {
+        return 1;
+    }
+    return 0;
+}
+
+vec3 ImprovedViewer::LineSegmentsIntersection(LineSegment s1, LineSegment s2){
+    double a = s1.R.x - s1.Q.x;
+    double b = s2.Q.x - s2.R.x;
+    double c = s2.Q.x - s1.Q.x;
+    double d = s1.R.y - s1.Q.y;
+    double e = s2.Q.y - s2.R.y;
+    double f = s2.Q.y - s1.Q.y;
+    double delta = a * e - b * d;
+    double delta1 = c * e - b * f;
+    if (delta != 0) {
+        double delta2 = a * f - c * d;
+        if ((delta1 >= 0 && delta2 >= 0 && delta1 < delta && delta2 < delta) || (delta1 <= 0 && delta2 <= 0 && delta1 >= delta && delta2 >= delta)) {
+            double lambda = delta1 / delta;
+            return vec3((1 - lambda) * s1.Q.x + lambda * s1.R.x, (1 - lambda) * s1.Q.y + lambda * s1.R.y, 0);
+        }
+    }
+    else if (delta1 == 0) {
+        if ((c <= 0 || c <= b) && (c >= 0 || c >= b) && (f <= 0 || f <= e) && (f >= 0 || f >= e)) {
+            return s1.Q;
+        }
+        if ((c > 0 || c > a) && (c < 0 || c > a) && (f > 0 || f < d) && (f < 0 || f < d)) {
+            return s2.Q;
+        }
+        if ((a >= c || s1.R.x >= s2.R.x) && (a <= c || s1.R.x <= s2.R.x) && (d >=f || s1.R.y >= s2.R.y) && (d <=f || s1.R.y <= s2.R.y)) {
+            return s1.R;
+        }
+        if((b < c || s2.R.x > s1.R.x) && (b > c || s2.R.x < s1.R.x) && (e < f || s2.R.y > s1.R.y) && (e > f || s2.R.y < s1.R.y)) {
+            return s2.R;
+        }
+    }
+}
+
+bool ImprovedViewer::AreLineSegmentsIntersect(LineSegment s1, LineSegment s2){
+    return (GeneralizedOrientationOfThreePoints(s1.R, s1.Q, s2.R) * GeneralizedOrientationOfThreePoints(s1.R, s1.Q, s2.Q) <= 0) &&
+           (GeneralizedOrientationOfThreePoints(s2.R, s2.Q, s1.R) * GeneralizedOrientationOfThreePoints(s2.R, s2. Q, s1.Q) <= 0);
+}
+
+std::vector<vec3> ImprovedViewer::AllLineSegmentsIntersections_Naive(std::vector<LineSegment> s, std::vector<vec3>& colors) {
+    std::vector<vec3> P = {};
+    int n = s.size();
+    for (int i = 0; i < n;  i++) {
+        for (int j = i + 1; j < n; j++) {
+            if(AreLineSegmentsIntersect(s[i], s[j])) {
+
+                colors[2 * i] = vec3(0, 1.0f, 0);
+                colors[2 * i + 1] = vec3(0, 1.0f, 0);
+
+                colors[2 * j] = vec3(0, 1.0f, 0);
+                colors[2 * j + 1] = vec3(0, 1.0f, 0);
+
+                P.push_back(LineSegmentsIntersection(s[i], s[j]));
+            }
+        }
+    }
+    return P;
+}
+
 bool ImprovedViewer::key_press_event(int key, int modifiers) {
     if (key == GLFW_KEY_N) {
         PointsDrawable* pointsDrawable = new PointsDrawable("vertices");
@@ -543,6 +665,163 @@ bool ImprovedViewer::key_press_event(int key, int modifiers) {
     }
     else if (key == GLFW_KEY_R){
         generatePointsRect();
+    }
+    else if (key == GLFW_KEY_D){
+        std::srand(time(NULL));
+        int m, n;
+        std::cout<<"Enter number of vertical lines: \n";
+        std::cin>>m;
+        std::cout<<"Enter number of horizontal lines: \n";
+        std::cin>>n;
+
+        std::vector<easy3d::vec3> sveTacke;
+        std::vector<easy3d::vec3> colors;
+        std::vector<LineSegment> P;
+        vec3 tacka;
+        for(int i = 0; i < m; i++){
+            int tx = rand()%1000;
+            int ty = rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx, ty, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(vec3(0.0f,0.0f,0.0f));
+
+            int tx2 = tx + rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx2, ty, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(vec3(0.0f,0.0f,0.0f));
+
+            LineSegment ls = LineSegment(vec3(tx,ty,0), vec3(tx2,ty,0));
+            P.push_back(ls);
+        }
+
+        for(int i = 0; i < n; i++){
+            int tx = rand()%1000;
+            int ty = rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx, ty, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(easy3d::vec3(0.0f,0.0f,0.0f));
+
+            int ty2 = ty + rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx, ty2, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(easy3d::vec3(0.0f,0.0f,0.0f));
+
+            LineSegment ls = LineSegment(vec3(tx,ty,0), vec3(tx,ty2,0));
+            P.push_back(ls);
+        }
+
+        easy3d::LinesDrawable* linesDrawable = new easy3d::LinesDrawable("linesDrawable");
+
+        std::vector<unsigned int> veze;
+        for(int i=0; i<sveTacke.size()-1;i +=2 ){
+            veze.push_back(i);
+            veze.push_back(i+1);
+        }
+        std::vector<vec3> intersections = HVLineSegmentsIntersections(P);
+
+        for(int i = 0; i<intersections.size(); i++){
+            for(int j = 0; j < P.size(); j++)
+            {
+                if(intersections[i].y == P[j].Q.y && intersections[i].x >= P[j].Q.x && intersections[i].x <= P[j].R.x){
+                    colors[2 * j] = vec3(0, 1.0f, 0);
+                    colors[2 * j + 1] = vec3(0, 1.0f, 0);
+                }
+
+                if(intersections[i].x == P[j].Q.x && intersections[i].y >= P[j].Q.y && intersections[i].y <= P[j].R.y){
+                    colors[2 * j] = vec3(0, 1.0f, 0);
+                    colors[2 * j + 1] = vec3(0, 1.0f, 0);
+                }
+            }
+        }
+
+        std::cout<<"Presjeci duzi su tacke: "<<std::endl;
+        for(int i = 0; i<intersections.size(); i++){
+            std::cout<<"{"<<intersections[i]<<"} ";
+            intersections[i] = camera()->unprojectedCoordinatesOf(intersections[i]);
+            intersections[i].y = -1;
+        }
+
+
+
+        linesDrawable->update_vertex_buffer(sveTacke);
+        linesDrawable->update_color_buffer(colors);
+        linesDrawable->update_index_buffer(veze);
+        linesDrawable->set_line_width(3.0f);
+        add_drawable(linesDrawable);
+
+        PointsDrawable* pointsDrawable = new PointsDrawable("vertices");
+        std::vector<vec3> pointColors(intersections.size(), vec3(1.0f, 0, 0));
+        pointsDrawable->update_vertex_buffer(intersections);
+        pointsDrawable->update_color_buffer(pointColors);
+        pointsDrawable->set_impostor_type(PointsDrawable::SPHERE);
+        pointsDrawable->set_point_size(5.0f);
+        add_drawable(pointsDrawable);
+
+        camera()->showEntireScene();
+        update();
+    }
+    else if (key == GLFW_KEY_L){
+        int m;
+        std::cout<<"Enter number of lines: \n";
+        std::cin>>m;
+        std::vector<easy3d::vec3> sveTacke;
+        std::vector<easy3d::vec3> colors;
+        std::vector<LineSegment> P;
+        vec3 tacka;
+        for(int i = 0; i < m; i++){
+            int tx = rand()%1000;
+            int ty = rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx, ty, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(vec3(0.0f,0.0f,0.0f));
+
+            int tx2 = rand()%1000;
+            int ty2 = rand()%1000;
+            tacka = camera()->unprojectedCoordinatesOf(easy3d::vec3(tx2, ty2, 0));
+            tacka.y = -1;
+            sveTacke.push_back(tacka);
+            colors.push_back(vec3(0.0f,0.0f,0.0f));
+
+            LineSegment ls = LineSegment(vec3(tx,ty,0), vec3(tx2,ty2,0));
+            P.push_back(ls);
+        }
+
+        std::vector<unsigned int> veze;
+        for(int i=0; i<sveTacke.size()-1;i +=2 ){
+            veze.push_back(i);
+            veze.push_back(i+1);
+        }
+
+        std::vector<vec3> intersections = AllLineSegmentsIntersections_Naive(P, colors);
+        std::cout<<"Presjeci duzi su tacke: "<<std::endl;
+        for(int i = 0; i<intersections.size(); i++){
+            std::cout<<"{"<<intersections[i]<<"} ";
+            intersections[i] = camera()->unprojectedCoordinatesOf(intersections[i]);
+            intersections[i].y = -1;
+        }
+
+        PointsDrawable* pointsDrawable = new PointsDrawable("vertices");
+        std::vector<vec3> pointColors(intersections.size(), vec3(1.0f, 0, 0));
+        pointsDrawable->update_vertex_buffer(intersections);
+        pointsDrawable->update_color_buffer(pointColors);
+        pointsDrawable->set_impostor_type(PointsDrawable::SPHERE);
+        pointsDrawable->set_point_size(5.0f);
+        add_drawable(pointsDrawable);
+
+        easy3d::LinesDrawable* linesDrawable = new easy3d::LinesDrawable("linesDrawable");
+        linesDrawable->update_vertex_buffer(sveTacke);
+        linesDrawable->update_color_buffer(colors);
+        linesDrawable->update_index_buffer(veze);
+        linesDrawable->set_line_width(3.0f);
+        add_drawable(linesDrawable);
+
+        camera()->showEntireScene();
+        update();
     }
     else
         return Viewer::key_press_event(key, modifiers);

@@ -41,6 +41,29 @@ public:
             this->y2 = y2;
         }
     };
+
+    struct LineSegment{
+        vec3 Q, R;
+        LineSegment(vec3 Q, vec3 R){
+            this->Q = Q;
+            this->R = R;
+        }
+    };
+
+    enum Events {HLineStart, HLineEnd, VLine};
+
+    struct Event {
+        Events t;
+        double x;
+        int i;
+
+        Event(Events t, double x, int i) {
+            this->t = t;
+            this->x = x;
+            this->i = i;
+        }
+    };
+
     ImprovedViewer(const std::string& title = "s");
     void readFilePoints(const std::string &ime);
     void readFileLines(const std::string &ime, const std::string &imeIndices);
@@ -56,7 +79,11 @@ public:
     vec3 LineThroughTwoPoints(vec3 P1, vec3 P2);
     void generatePointsRect();
     std::vector<vec3> RectangularSearch_Naive(std::vector<vec3> P, Rectangle R);
-
+    std::vector<vec3> HVLineSegmentsIntersections(std::vector<LineSegment> s);
+    std::vector<vec3> AllLineSegmentsIntersections_Naive(std::vector<LineSegment> s, std::vector<vec3>& colors);
+    vec3 LineSegmentsIntersection(LineSegment s1, LineSegment s2);
+    bool AreLineSegmentsIntersect(LineSegment s1, LineSegment s2);
+    int GeneralizedOrientationOfThreePoints(vec3 P1, vec3 P2, vec3 P3);
 
 protected:
     bool mouse_press_event(int x, int y, int button, int modifiers) override;
