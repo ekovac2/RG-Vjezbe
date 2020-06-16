@@ -24,6 +24,7 @@
 
 #include "improved_viewer.h"
 
+#include <easy3d/fileio/resources.h>
 #include <easy3d/core/point_cloud.h>
 #include <easy3d/viewer/camera.h>
 #include <easy3d/viewer/drawable_points.h>
@@ -31,6 +32,8 @@
 #include <easy3d/algo/point_cloud_normals.h>
 #include <3rd_party/glfw/include/GLFW/glfw3.h>	// for the KEYs
 #include <fstream>
+#include <easy3d/util/timer.h>
+#include <easy3d/core/random.h>
 
 using namespace easy3d;
 
@@ -566,6 +569,56 @@ std::vector<vec3> ImprovedViewer::AllLineSegmentsIntersections_Naive(std::vector
     return P;
 }
 
+std::vector<ImprovedViewer::Triangle> ImprovedViewer::DelaunayTriangulation_VerySlow(std::vector<vec3> P){
+    std::vector<double> z(P.size());
+    std::vector<Triangle> T = {};
+    for(int i = 0; i < P.size(); i++){
+        z[i] = P[i].x * P[i].x + P[i].y * P[i].y;
+    }
+    for(int i = 0; i < P.size() - 2; i++){
+        for(int j = i + 1; j < P.size(); j++){
+            for(int k = i + 1; k < P.size(); k++){
+                if(j != k){
+                    double u = (P[j].y - P[i].y) * (z[k] - z[i]) - (P[k].y - P[i].y) * (z[j] - z[i]);
+                    double v = (P[k].x - P[i].x) * (z[j] - z[i]) - (P[j].x - P[i].x) * (z[k] - z[i]);
+                    double w = (P[j].x - P[i].x) * (P[k].y - P[i].y) - (P[k].x - P[i].x) * (P[j].y - P[i].y);
+                    bool f = (w < 0);
+                    int m = 0;
+                    while(f && m < P.size()){
+                        if(((P[m].x - P[i].x) * u + (P[m].y - P[i].y) * v + (z[m] - z[i]) * w) > 0)
+                            f = false;
+                        m++;
+                    }
+                    if(f)
+                        T.push_back(Triangle(P[i], P[j], P[k]));
+                }
+            }
+        }
+    }
+    return T;
+}
+
+bool ImprovedViewer::callback_event_timer(){
+    update_ = true;
+    update();
+    return true;
+}
+void ImprovedViewer::draw() const{
+    std::vector<vec3> colors;
+    if(update_) {
+        for (int i = 0; i < 10; i++) {
+            for(int j = 0; j < 10; j++){
+                colors.push_back(random_color());
+            }
+        }
+        pDrawable->update_color_buffer(colors);
+        pDrawable->set_per_vertex_color(true);
+        update();
+        update_ = false;
+    }
+    Viewer::draw();
+}
+
 bool ImprovedViewer::key_press_event(int key, int modifiers) {
     if (key == GLFW_KEY_N) {
         PointsDrawable* pointsDrawable = new PointsDrawable("vertices");
@@ -823,6 +876,71 @@ bool ImprovedViewer::key_press_event(int key, int modifiers) {
         camera()->showEntireScene();
         update();
     }
+    else if (key == GLFW_KEY_T){
+        std::vector<vec3> pointsOn;
+        for(int i = 1; i < pointsOnClick.size(); i++){
+            pointsOn.push_back(camera()->projectedCoordinatesOf(pointsOnClick[i]));
+        }
+        std::cout<<"Tacke.size "<<pointsOn[0][1]<<" "<<pointsOn[0][2]<<"\n";
+
+
+        LinesDrawable* linesDrawable = new LinesDrawable("linesDrawable");
+        std::vector<Triangle> trouglovi = DelaunayTriangulation_VerySlow(pointsOn);
+        std::cout<<"vel "<<trouglovi.size()<<" ";
+        if(trouglovi.size() != 0){
+        std::vector<unsigned int> veze = {};
+        for(int i = 0; i < trouglovi.size(); i++){
+            std::cout<<"vraceni "<<trouglovi[i].P1<<" "<<trouglovi[i].P2<<" "<<trouglovi[i].P3<<" ";
+            for(int j = 0; j < pointsOn.size(); j++){
+                if(pointsOn[j].x == trouglovi[i].P1.x && pointsOn[j].y == trouglovi[i].P1.y)
+                    veze.push_back(j);
+                if(pointsOn[j].x == trouglovi[i].P2.x && pointsOn[j].y == trouglovi[i].P2.y)
+                    veze.push_back(j);
+                if(pointsOn[j].x == trouglovi[i].P3.x && pointsOn[j].y == trouglovi[i].P3.y)
+                    veze.push_back(j);
+            }
+        }
+
+        std::cout<<" "<<veze;
+        std::vector<unsigned int> veze2 = {};
+        for(int i = 0; i < veze.size() - 2; i++){
+            veze2.push_back(veze[i] + 1);
+            veze2.push_back(veze[i + 1] + 1);
+            veze2.push_back(veze[i + 1] + 1);
+            veze2.push_back(veze[i + 2] + 1);
+            veze2.push_back(veze[i + 2] + 1);
+            veze2.push_back(veze[i] + 1
+
+            );
+        }
+
+        linesDrawable->update_vertex_buffer(pointsOnClick);
+        linesDrawable->update_index_buffer(veze2);
+        linesDrawable->set_line_width(5.0f);
+        add_drawable(linesDrawable);
+
+        camera()->showEntireScene();
+        update();
+        }
+    }/*
+    else if (key == GLFW_KEY_A) {
+        std::vector<vec3> points;
+        for(int i = -500; i < 500; i += 100) {
+            for (int j = -500; j < 500 ; j += 100) {
+                points.push_back(vec3(i,0, j));
+            }
+        }
+        pDrawable->update_vertex_buffer(points);
+        pDrawable->set_per_vertex_color(true);
+        pDrawable->set_impostor_type(PointsDrawable::SPHERE);
+        pDrawable->set_point_size(15.0f);
+        add_drawable(pDrawable);
+        update();
+        timer_.set_interval(2000,&ImprovedViewer::callback_event_timer,this);
+    }
+    else if (key == GLFW_KEY_S) {
+        timer_.stop();
+    }*/
     else
         return Viewer::key_press_event(key, modifiers);
 }

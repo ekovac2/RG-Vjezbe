@@ -26,11 +26,24 @@
 #define RG_LV_IMPROVED_VIEWER_H
 
 #include <easy3d/viewer/viewer.h>
+#include <easy3d/viewer/drawable_points.h>
+#include <easy3d/util/timer.h>
+#include <easy3d/core/random.h>
+#include <easy3d/viewer/drawable_triangles.h>
+
 using namespace easy3d;
 
 class ImprovedViewer : public easy3d::Viewer
 {
 public:
+    struct Triangle{
+        vec3 P1, P2, P3;
+        Triangle(vec3 P1, vec3 P2, vec3 P3){
+            this->P1 = P1;
+            this->P2 = P2;
+            this->P3 = P3;
+        }
+    };
     struct Rectangle{
         double x1, x2, y1, y2;
         Rectangle(){}
@@ -41,7 +54,6 @@ public:
             this->y2 = y2;
         }
     };
-
     struct LineSegment{
         vec3 Q, R;
         LineSegment(vec3 Q, vec3 R){
@@ -49,9 +61,7 @@ public:
             this->R = R;
         }
     };
-
     enum Events {HLineStart, HLineEnd, VLine};
-
     struct Event {
         Events t;
         double x;
@@ -84,16 +94,24 @@ public:
     vec3 LineSegmentsIntersection(LineSegment s1, LineSegment s2);
     bool AreLineSegmentsIntersect(LineSegment s1, LineSegment s2);
     int GeneralizedOrientationOfThreePoints(vec3 P1, vec3 P2, vec3 P3);
+    std::vector<Triangle> DelaunayTriangulation_VerySlow(std::vector<vec3> P);
+
+    Timer timer_;
+    mutable bool update_;
+    mutable std::vector<vec3> points;
+    mutable std::vector<vec3> normals;
+    TrianglesDrawable* surface = new TrianglesDrawable("faces");
+    PointsDrawable *pDrawable = new PointsDrawable("LV8");
+
+    void draw() const override;
+    bool callback_event_timer();
 
 protected:
     bool mouse_press_event(int x, int y, int button, int modifiers) override;
     bool key_press_event(int key, int modifiers) override;
     std::string usage() const override;
 
-private:
-
-
 };
 
 
-#endif // RG_LV_IMPROVED_VIEWER_H
+#endif

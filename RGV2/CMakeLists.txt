@@ -104,6 +104,10 @@ endif()
 
 add_subdirectory(applications)
 add_subdirectory(LV2)
+add_subdirectory(LV8)
+add_subdirectory(LV9)
+
+
 ################################################################################
 
 # finds doxygen
